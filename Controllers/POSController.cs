@@ -103,8 +103,19 @@ namespace TestPOSApp.Controllers
         }
 
         [HttpGet("transactions")]
-        public async Task<ActionResult<ResponseDto>> GetTransactions()
+        public async Task<ActionResult<ResponseDto>> GetTransactions(int pageNumber = 1, int pageSize = 10)
         {
+            if (pageNumber <= 0)
+            {
+                pageNumber = 1;
+            }
+            if (pageSize <= 0)
+            {
+                pageSize = 10;
+            }
+
+            var totalTransactions = await _context.Transactions.CountAsync();
+
             var transactions = await _context.Transactions
                 .Include(t => t.Items)
                 .ThenInclude(ti => ti.Item)
@@ -120,13 +131,19 @@ namespace TestPOSApp.Controllers
                         Quantity = ti.Quantity,
                         Price = ti.Price
                     }).ToList()
-                }).ToListAsync();
+                }).Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
 
             return Ok(new ResponseDto
             {
                 IsSuccess = true,
                 Message = "success",
-                Data = transactions
+                Data = new
+                {
+                    TotalTransactions = totalTransactions,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    Transactions = transactions
+                }
             });
         }
 
@@ -170,8 +187,19 @@ namespace TestPOSApp.Controllers
         }
 
         [HttpGet("reports")]
-        public async Task<ActionResult<ResponseDto>> GetPOSReport()
+        public async Task<ActionResult<ResponseDto>> GetPOSReport(int pageNumber = 1, int pageSize = 10)
         {
+            if (pageNumber <= 0)
+            {
+                pageNumber = 1;
+            }
+            if (pageSize <= 0)
+            {
+                pageSize = 10;
+            }
+
+            var totalTransactions = await _context.Transactions.CountAsync();
+
             var report = await _context.Transactions
                 .Include(t => t.Items)
                 .ThenInclude(ti => ti.Item)
@@ -187,14 +215,19 @@ namespace TestPOSApp.Controllers
                         Quantity = ti.Quantity,
                         Price = ti.Price
                     }).ToList()
-                })
-                .ToListAsync();
+                }).Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
 
             return Ok(new ResponseDto
             {
                 IsSuccess = true,
                 Message = "success",
-                Data = report
+                Data = new
+                {
+                    TotalTransactions = totalTransactions,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    PosReport = report
+                }
             });
         }
     }

@@ -24,14 +24,32 @@ namespace TestPOSApp.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<ResponseDto>> GetItems()
+        public async Task<ActionResult<ResponseDto>> GetItems(int pageNumber = 1, int pageSize = 10)
         {
-            var items = await _context.Items.ToListAsync();
+            if (pageNumber <= 0)
+            {
+                pageNumber = 1;
+            }
+            if (pageSize <= 0)
+            {
+                pageSize = 10;
+            }
+
+            var totalItems = await _context.Items.CountAsync();
+
+            var items = await _context.Items.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+
             return Ok(new ResponseDto
             {
                 IsSuccess = true,
                 Message = "success",
-                Data = items
+                Data = new
+                {
+                    TotalItems = totalItems,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    Items = items
+                }
             });
         }
 
@@ -241,8 +259,19 @@ namespace TestPOSApp.Controllers
         }
 
         [HttpGet("stock")]
-        public async Task<ActionResult<ResponseDto>> GetStockReport()
+        public async Task<ActionResult<ResponseDto>> GetStockReport(int pageNumber = 1, int pageSize = 10)
         {
+            if (pageNumber <= 0)
+            {
+                pageNumber = 1;
+            }
+            if (pageSize <= 0)
+            {
+                pageSize = 10;
+            }
+
+            var totalItems = await _context.Items.CountAsync();
+
             var stockReport = await _context.Items.Select(i => new Item
             {
                 Id = i.Id,
@@ -250,12 +279,19 @@ namespace TestPOSApp.Controllers
                 Stock = i.Stock,
                 Category = i.Category,
                 Price = i.Price
-            }).ToListAsync();
+            }).Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+
             return Ok(new ResponseDto
             {
                 IsSuccess = true,
                 Message = "success",
-                Data = stockReport
+                Data = new
+                {
+                    TotalItems = totalItems,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    StockReport = stockReport
+                }
             });
         }
 
