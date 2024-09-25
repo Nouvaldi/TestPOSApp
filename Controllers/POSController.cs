@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using IronPdf;
 using TestPOSApp.Data;
 using TestPOSApp.Models;
+using System.Text;
 
 namespace TestPOSApp.Controllers
 {
@@ -230,5 +232,48 @@ namespace TestPOSApp.Controllers
                 }
             });
         }
+
+        #region Generate PDF using IronPDF (No license)
+        // Generate pdf on front end instead, using jsPdf
+        [HttpGet("generatePdf")]
+        public async Task<ActionResult> generatePDF()
+        {
+            var transactions = _context.Transactions.Include(t => t.Items).ThenInclude(ti => ti.Item).ToListAsync();
+
+            var htmlContent = new StringBuilder();
+            htmlContent.Append("<h1>Transaction Report</h1>");
+
+            foreach (var tr in await transactions)
+            {
+                htmlContent.Append($"<h2>Transaction ID: {tr.Id}</h2>");
+                htmlContent.Append($"<p>Date: {tr.Date}</p>");
+                htmlContent.Append($"<p>Total Price: Rp. {tr.TotalPrice}</p>");
+
+                htmlContent.Append("<table border='1' cellpadding='5' cellspacing='0'>");
+                htmlContent.Append("<tr><th>Item</th><th>Price</th><th>Quantity</th><th>Subtotal</th></tr>");
+
+                foreach (var transactionItem in tr.Items)
+                {
+                    var i = transactionItem.Item;
+                    htmlContent.Append($"<tr>");
+                    htmlContent.Append($"<td>{i.Name}</td>");
+                    htmlContent.Append($"<td>Rp. {i.Price}</td>");
+                    htmlContent.Append($"<td>{transactionItem.Quantity}</td>");
+                    htmlContent.Append($"<td>Rp. {i.Price * transactionItem.Quantity}</td>");
+                    htmlContent.Append($"<tr>");
+                }
+
+                htmlContent.Append("</table>");
+                htmlContent.Append("<hr/>");
+            }
+
+            var renderer = new ChromePdfRenderer();
+            var pdf = renderer.RenderHtmlAsPdf( htmlContent.ToString() );
+            //pdf.SaveAs("transactionReport.pdf");
+
+            var pdfBytes = pdf.BinaryData;
+            return File(pdfBytes, "application/pdf", "transactionReport.pdf");
+        }
+        #endregion 
     }
 }

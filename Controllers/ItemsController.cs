@@ -85,58 +85,71 @@ namespace TestPOSApp.Controllers
                 });
             }
 
-            if (dt.ImageFile != null)
+            try
             {
-                var validRes = ValidateImageFile(dt.ImageFile);
-                if (!validRes.IsValid)
+                var imageFileUrl = "";
+
+                if (dt.ImageFile != null)
                 {
-                    return BadRequest(new ResponseDto
+                    var validRes = ValidateImageFile(dt.ImageFile);
+                    if (!validRes.IsValid)
                     {
-                        IsSuccess = false,
-                        Message = validRes.ErrorMessage,
-                    });
+                        return BadRequest(new ResponseDto
+                        {
+                            IsSuccess = false,
+                            Message = validRes.ErrorMessage,
+                        });
+                    }
+
+                    var uploadRes = await UploadImageAsync(dt.ImageFile);
+                    if (!uploadRes.IsSuccess)
+                    {
+                        return StatusCode(500, new ResponseDto
+                        {
+                            IsSuccess = false,
+                            Message = "Failed to upload image"
+                        });
+                    }
+                    imageFileUrl = uploadRes.ImageUrl;
                 }
 
-                var uploadRes = await UploadImageAsync(dt.ImageFile);
-                if (!uploadRes.IsSuccess)
+                var item = new Item
                 {
-                    return StatusCode(500, new ResponseDto
-                    {
-                        IsSuccess = false,
-                        Message = "Failed to upload image"
-                    });
-                }
-                dt.ImageUrl = uploadRes.ImageUrl;
+                    Name = dt.Name,
+                    Price = dt.Price,
+                    Stock = dt.Stock,
+                    Category = dt.Category,
+                    ImageUrl = imageFileUrl,
+                };
+
+                _context.Items.Add(item);
+                await _context.SaveChangesAsync();
+
+                var itemDto = new ItemDto
+                {
+                    Id = item.Id,
+                    Name = item.Name,
+                    Price = item.Price,
+                    Stock = item.Stock,
+                    Category = item.Category,
+                    ImageUrl = item.ImageUrl,
+                };
+
+                return CreatedAtAction(nameof(GetItem), new { id = item.Id }, new ResponseDto
+                {
+                    IsSuccess = true,
+                    Message = "Item created successfully",
+                    Data = itemDto
+                });
             }
-
-            var item = new Item
+            catch (Exception ex)
             {
-                Name = dt.Name,
-                Price = dt.Price,
-                Stock = dt.Stock,
-                Category = dt.Category,
-                ImageUrl = dt.ImageUrl,
-            };
-
-            _context.Items.Add(item);
-            await _context.SaveChangesAsync();
-
-            var itemDto = new ItemDto
-            {
-                Id = item.Id,
-                Name = item.Name,
-                Price = item.Price,
-                Stock = item.Stock,
-                Category = item.Category,
-                ImageUrl = item.ImageUrl,
-            };
-
-            return CreatedAtAction(nameof(GetItem), new { id = item.Id }, new ResponseDto
-            {
-                IsSuccess = true,
-                Message = "Item created successfully",
-                Data = itemDto
-            });
+                return StatusCode(500, new ResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Failed to create new item",
+                });
+            }
         }
 
         [HttpPut("{id}")]
@@ -249,6 +262,12 @@ namespace TestPOSApp.Controllers
                     Message = "Item not found"
                 });
             }
+
+            if (!string.IsNullOrEmpty(item.ImageUrl))
+            {
+                DeleteOldImage(item.ImageUrl);
+            }
+
             _context.Items.Remove(item);
             await _context.SaveChangesAsync();
             return Ok(new ResponseDto
